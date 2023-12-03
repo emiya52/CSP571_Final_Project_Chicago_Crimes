@@ -1,0 +1,184 @@
+---
+title: 'Exploring Crime Patterns in Chicago: An EDA Approach'
+author: "JinhoPark"
+date: "2023-12-02"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Importing Necessary Libraries:
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+library(ggcorrplot)
+```
+
+Data Loading and Preprocessing:
+```{r}
+# Load the crimes dataset
+df <- read_csv("Crimes_-_2001_to_Present.csv")
+```
+
+```{r}
+attach(df)
+# Select relevant columns
+df <- df %>% 
+  select(`Date`, `Primary Type`, `Location Description`, `Arrest`, `Domestic`, `Community Area`, `Year`)
+
+# Handling missing values
+df <- na.omit(df)
+```
+
+
+Merging with Community Area data set:
+```{r}
+# Load the community areas dataset
+areas <- read_csv('CommAreas.csv') %>% 
+  select(AREA_NUMBE, COMMUNITY)
+
+# Merge datasets
+# Ensure the column name 'Community Area' in df matches exactly with the column name in your dataframe
+# Both 'Community Area' and 'AREA_NUMBE' should be in quotes to be treated as character strings
+chi_crime <- df %>%
+  inner_join(areas, by = c("Community Area" = "AREA_NUMBE")) %>%
+  select(-`Community Area`)
+
+```
+
+Date-Time manipulation
+```{r}
+# Convert 'Date' to datetime and extract components
+chi_crime <- chi_crime %>%
+  mutate(
+    DateTime = mdy_hms(Date),  # Parses Month/Day/Year Hour:Minute:Second AM/PM format
+    Hour = hour(DateTime),
+    Day = day(DateTime),
+    Month = month(DateTime)
+  ) %>%
+  select(-DateTime)
+```
+
+Crime Type Analysis:
+```{r}
+# Count by crime type and visualize
+crime_type_counts <- chi_crime %>%
+  count(`Primary Type`, sort = TRUE)
+
+# Pie chart for top 10 crime types
+fig <- plot_ly(crime_type_counts[1:10,], labels = ~`Primary Type`, values = ~n, type = 'pie')
+fig
+
+```
+
+Crime by Community Area:
+```{r}
+# Check that the COMMUNITY column exists and view the first few entries
+if ("COMMUNITY" %in% names(chi_crime)) {
+  print(head(chi_crime$COMMUNITY))
+  
+  # Assuming COMMUNITY exists and the counts were calculated correctly
+  community_crime_counts <- chi_crime %>%
+    count(COMMUNITY, sort = TRUE)
+  
+  # Check the community_crime_counts dataframe
+  print(head(community_crime_counts))
+  
+  # ggplot2 based Bar Plot for comparison
+  ggplot(community_crime_counts, aes(x = reorder(COMMUNITY, n), y = n)) +
+    geom_bar(stat = "identity") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(title = "Crime Count by Community", x = "Community", y = "Count")
+
+  # Treemap for crime by community using plot_ly
+  if (nrow(community_crime_counts) > 0) {
+    fig <- plot_ly(
+      data = community_crime_counts,
+      labels = ~COMMUNITY,
+      parents = "",
+      values = ~n,
+      type = 'treemap',
+      textinfo = 'label+value'
+    )
+    fig
+  } else {
+    cat("The community_crime_counts dataframe is empty or not correctly formatted.")
+  }
+} else {
+  cat("COMMUNITY column does not exist in chi_crime dataframe.")
+}
+```
+
+Crime by Year:
+```{r}
+# Histogram of crimes by year
+ggplot(chi_crime, aes(x = Year)) +
+  geom_histogram(stat = "count")
+```
+
+Analysis of Arrests and Domestic Crimes
+
+```{r}
+
+# Arrest and Domestic Crime Analysis
+arrest_counts <- table(chi_crime$Arrest)
+domestic_counts <- table(chi_crime$Domestic)
+
+# Creating labels for the pie charts
+arrest_labels <- names(arrest_counts)
+domestic_labels <- names(domestic_counts)
+
+# Pie chart for Arrests
+fig_arrest <- plot_ly() %>% 
+  add_pie(
+    labels = ~arrest_labels, 
+    values = ~arrest_counts, 
+    name = "Arrests", 
+    hole = 0.4,
+    textinfo = "label+percent",
+    insidetextorientation = 'radial'
+  ) %>% 
+  layout(title = "Arrests in Chicago Crime Data")
+
+# Display the Arrests pie chart
+fig_arrest
+
+# Pie chart for Domestic Crimes
+fig_domestic <- plot_ly() %>% 
+  add_pie(
+    labels = ~domestic_labels, 
+    values = ~domestic_counts, 
+    name = "Domestic Crimes", 
+    hole = 0.4,
+    textinfo = "label+percent",
+    insidetextorientation = 'radial'
+  ) %>% 
+  layout(title = "Domestic Crimes in Chicago Crime Data")
+
+# Display the Domestic Crimes pie chart
+fig_domestic
+```
+
+Correlation Analysis:
+```{r}
+# Convert categorical columns to numeric
+chi_crime$`Primary Type` <- as.numeric(factor(chi_crime$`Primary Type`))
+chi_crime$`Location Description` <- as.numeric(factor(chi_crime$`Location Description`))
+
+# Creating a correlation matrix
+correlation_matrix <- chi_crime %>%
+  select(`Primary Type`, `Location Description`, Arrest, Domestic, Year, Month, Day, Hour) %>%
+  cor()
+
+# Heatmap of the correlation matrix
+ggcorrplot(correlation_matrix, method = "circle")
+
+# Heatmap of the correlation matrix with numeric labels
+ggcorrplot(correlation_matrix, method = "circle", lab = TRUE)
+
+```

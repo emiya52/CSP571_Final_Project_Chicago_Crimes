@@ -1,0 +1,95 @@
+
+---
+title: "Exploratory Data Analysis of Chicago Crime Data"
+output: html_document
+---
+
+## Introduction
+
+This document presents an exploratory data analysis (EDA) of a subset of Chicago's crime dataset.
+
+## Setup
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(sf)
+```
+
+## Data Loading
+
+```{r load-data}
+# Convert 'Date' to datetime for easier manipulation
+crimes$Date <- as.Date(crimes$Date, format="%m/%d/%Y %H:%M:%S")
+```
+
+
+## 1. Yearly Trends with Plot
+
+```{r yearly-trends-plot}
+# Yearly Trends
+yearly_trends <- crimes %>% 
+  mutate(Year = year(Date)) %>% 
+  count(Year) %>% 
+  arrange(Year)
+
+# Plotting
+ggplot(yearly_trends, aes(x = Year, y = n)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Yearly Crime Trends in Chicago", x = "Year", y = "Number of Crimes")
+```
+
+## 2. Seasonal and Monthly Trends
+
+```{r monthly-trends}
+# Monthly Trends
+monthly_trends <- crimes %>% 
+  mutate(Month = month(Date)) %>% 
+  count(Month) %>% 
+  arrange(Month)
+
+monthly_trends
+```
+
+## 3. Day of the Week Analysis
+
+```{r day-of-week-analysis}
+# Day of the Week Analysis
+day_of_week_trends <- crimes %>% 
+  mutate(DayOfWeek = wday(Date, label = TRUE)) %>% 
+  count(DayOfWeek) %>% 
+  arrange(DayOfWeek)
+
+day_of_week_trends
+```
+
+## 4. Spatial Analysis
+
+```{r spatial-analysis}
+# Assuming Latitude and Longitude are available in the dataset
+crimes_sf <- st_as_sf(crimes, coords = c("Longitude", "Latitude"), crs = 4326)
+
+# Plot
+ggplot(data = crimes_sf) +
+  geom_sf() +
+  coord_sf(xlim = c(-87.94011, -87.52414), ylim = c(41.64454, 42.02304)) +
+  theme_minimal()
+```
+
+## 5. Crime Type Analysis
+
+```{r crime-type-analysis}
+# Crime Type Analysis
+crime_type_analysis <- crimes %>% 
+  group_by(Primary.Type) %>% 
+  summarise(Count = n()) %>% 
+  arrange(desc(Count))
+
+crime_type_analysis
+```
+
+## Conclusion
+
+This document provided a detailed exploratory data analysis of the Chicago crimes dataset, including yearly trends, seasonal variations, day of the week patterns, spatial distribution, and crime type frequencies.

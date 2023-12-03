@@ -1,0 +1,96 @@
+
+---
+title: "Exploratory Data Analysis of Chicago Crime Data"
+output: html_document
+---
+
+## Introduction
+
+This document presents an exploratory data analysis (EDA) of a subset of Chicago's crime dataset, along with data from Chicago's community areas.
+
+## Data Loading and Preprocessing
+
+```{r load-data, message=FALSE}
+library(tidyverse)
+library(lubridate)
+
+# Load the data
+crimes <- read.csv("Crimes_-_2001_to_Present.csv")
+comm_areas <- read.csv("CommAreas.csv")
+
+# Convert date columns to Date type in crimes
+crimes$Date <- mdy_hms(crimes$Date)
+crimes$Updated.On <- mdy_hms(crimes$Updated.On)
+
+# Handling missing values
+crimes <- na.omit(crimes)
+```
+
+## Descriptive Analysis
+
+```{r descriptive-analysis}
+# Basic statistics
+summary(crimes)
+
+# Frequency of different types of crimes
+crime_types <- crimes %>% 
+  group_by(Primary.Type) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+crime_types
+```
+
+## Geospatial Analysis
+
+```{r geospatial-analysis, message=FALSE}
+library(ggplot2)
+library(sf)
+
+# Basic mapping of crime locations
+ggplot(crimes, aes(x = Longitude, y = Latitude)) + 
+  geom_point() + 
+  theme_minimal()
+```
+
+## Temporal Analysis
+
+```{r temporal-analysis}
+# Trend over years
+crimes %>% 
+  count(year = year(Date)) %>%
+  ggplot(aes(x = year, y = n)) +
+  geom_line() +
+  labs(title = "Crime Trends Over the Years", x = "Year", y = "Number of Crimes")
+```
+
+## Community Area Analysis
+
+```{r community-area-analysis}
+# Merge datasets
+combined_data <- merge(crimes, comm_areas, by.x = "Community.Area", by.y = "AREA_NUMBE")
+
+# Analysis by community area
+community_analysis <- combined_data %>% 
+  group_by(COMMUNITY) %>%
+  summarise(Total_Crimes = n()) %>%
+  arrange(desc(Total_Crimes))
+
+community_analysis
+```
+
+## Crime Type Analysis
+
+```{r crime-type-analysis}
+# Analysis of crime types
+crime_type_analysis <- crimes %>% 
+  group_by(Primary.Type, Description) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+crime_type_analysis
+```
+
+## Conclusion
+
+This document provided a comprehensive exploratory data analysis of the Chicago crimes dataset, encompassing various aspects like descriptive statistics, geospatial, temporal, and community area-based analyses.
